@@ -1,6 +1,19 @@
 import EpsilonDelta from './components/visualizer/EpsilonDelta'
 import TangentApproach from './components/visualizer/TangentApproach'
+import PlotCanvas from './components/plot/PlotCanvas'
 import './App.css'
+
+// 引擎自检用的临时预览：证明"任意表达式都能画"，P4 主界面接入后会被替换
+const PREVIEW_SPEC = {
+  expr: 'x*sin(x)',
+  domain: [-6, 6],
+  fill: true,
+  note: '拖动可平移，滚轮可缩放，鼠标悬停看坐标——半径能看到"极大/极小"和零点已被自动标出',
+}
+
+function PlotPreview() {
+  return <PlotCanvas spec={PREVIEW_SPEC} height={380} />
+}
 
 // 模块清单：后续新增积木只需往这里加一行，布局自动生效
 const sections = [
@@ -17,6 +30,13 @@ const sections = [
     title: '② 导数的几何意义',
     desc: '让 Δx 趋近 0，看割线转动成切线',
     Comp: TangentApproach,
+  },
+  {
+    key: 'plot',
+    chapter: '引擎自检',
+    title: '③ 任意函数绘图',
+    desc: '输入任意表达式就能画，自动标注极值点与零点',
+    Comp: PlotPreview,
   },
 ]
 
