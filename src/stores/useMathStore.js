@@ -12,7 +12,7 @@ const useMathStore = create((set, get) => ({
     func: 'x^2',      // 当前函数表达式
     x0: 1,            // 极限点
     epsilon: 0.5,     // ε 值（用户拖拽）
-    delta: 0.5,       // δ 值（随 ε 变化，代码里计算）
+    delta: 0.17,      // δ = ε/3 ≈ 0.17（随 ε 变化，代码里计算）
     limitValue: 1,    // 极限值 L
   },
 
