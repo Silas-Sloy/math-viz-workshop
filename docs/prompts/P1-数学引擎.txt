@@ -1,0 +1,109 @@
+你是资深 JavaScript 工程师，擅长写表达式解析器和数值计算。请严格按下面规格实现，不要自由发挥。
+
+【项目环境 / 硬性约束】
+- 纯 JavaScript ES Module，不要 TypeScript 语法，不要类型注解
+- 禁止使用 eval、new Function、with
+- 禁止引入任何第三方包，只能用 Math 和语言内置能力
+- 单文件，export 指定的函数，不要 default export
+- 不要写 TODO、不要省略实现、不要写"此处略"
+
+【文件路径】src/utils/mathEngine.js
+
+【必须 export 的函数（签名一字不改）】
+compile(expr) -> (x) => number
+tryCompile(expr) -> { ok: true, fn } | { ok: false, error: '中文错误说明' }
+derivative(fn, x) -> number
+integrate(fn, a, b, n = 2000) -> number
+findRoots(fn, a, b) -> number[]
+findExtrema(fn, a, b) -> { x, y, kind: 'min' | 'max' }[]
+monotonicIntervals(fn, a, b) -> { from, to, increasing }[]
+autoRange(fn, a, b) -> { yMin, yMax }
+sampleCurve(fn, a, b, yMin, yMax, n = 600) -> { x, y }[]    // y 为 null 表示断开
+prettyPi(v) -> string
+
+【支持的表达式语法】
+- 数字：3、3.5、.5、1e-3
+- 变量：x（唯一变量，大小写不敏感）
+- 常量：pi、π、e
+- 运算符：+ - * / ^，另外全角 × 等同 *，÷ 等同 /
+- 括号：英文 ( ) 和中文全角（ ）都要支持
+- 函数：sin cos tan asin acos atan sinh cosh tanh exp ln lg sqrt abs
+  （lg 是 10 为底对数，ln 是自然对数，exp 是 e^x）
+- 隐式乘法：2x、2 x、x(x+1)、(x+1)(x-1)、x sin(x)、2π、3(x+2)
+- 空白字符全部忽略
+
+【运算符优先级与结合性，必须完全一致】
+- 优先级从低到高：加减  <  乘除  <  一元负号  <  幂
+- 幂是右结合
+必须满足：
+  x=3 时  -x^2   = -9        （即 -(x^2)，不是 (-x)^2）
+  x=0 时  2^3^2  = 512       （即 2^(3^2)）
+  x=3 时  2x^2   = 18
+
+【实现方式】手写词法分析 + 递归下降语法分析，生成闭包求值树。
+不要用正则整体替换的方式硬凑。
+
+【各函数算法要求】
+- compile：内部用 Map 缓存已编译结果，key 是表达式字符串，最多缓存 50 条，超过就清空
+- tryCompile：捕获 compile 抛出的错误，返回 { ok:false, error }，error 是中文
+- derivative：中心差分 h = max(1e-5, |x| * 1e-5)，返回 (f(x+h) - f(x-h)) / (2h)
+- integrate：复合辛普森法，n 若为奇数则加 1
+- findRoots：从 a 到 b 以 0.01 步长扫描，遇到值恰好为 0（|f| < 1e-12）或相邻两点符号变化，就在该小区间二分 60 次；跳过 null/NaN/Infinity；结果按升序去重，相邻距离小于 1e-4 的合并
+- findExtrema：以 0.01 步长扫描 derivative，导数由负变正记 'min'，由正变负记 'max'；再在极值点附近用三点比较微调；返回按 x 升序
+- monotonicIntervals：用 findExtrema 的切点把 [a,b] 分段，每段取中点算导数符号判断 increasing
+- autoRange：采样 400 点，丢掉 null/NaN/Infinity，先按 2% 和 98% 分位截断（防止 tan 这类函数把值域撑爆），再上下各留 10% 余量；若 yMin === yMax 则返回 { yMin: yMin - 1, yMax: yMax + 1 }
+- sampleCurve：在 [a,b] 上等距取 n 个点；若结果为 NaN/Infinity/非数，或 |y| 超过 max(|yMin|,|yMax|) 的 20 倍，y 置为 null（表示此处断开，不连线）
+- prettyPi：识别 π 的有理倍数（误差 1e-9 内），分母支持 1,2,3,4,6,12，分子整数；整数倍输出 'π'、'2π'、'-3π'；分数输出 'π/2'、'3π/4'、'-π/6'；识别不出时返回保留 4 位小数并去掉尾部 0 的字符串
+
+【错误处理】
+compile 抛出的错误必须是中文，形如：
+  "表达式为空"
+  "第 4 个字符附近有无法识别的符号 '#'"
+  "括号不匹配"
+  "不认识的函数名 foo"
+  "表达式不完整，末尾缺少操作数"
+
+【验收标准 — 我会逐条跑，全部必须通过】
+compile('x^2')(3)            === 9
+compile('2x')(3)             === 6
+compile('x(x+1)')(2)         === 6
+compile('x sin(x)')(2)       === 2 * Math.sin(2)
+compile('sin(pi/2)')(0)      === 1
+compile('-x^2')(3)           === -9
+compile('2^3^2')(0)          === 512
+compile('e')(0)              === Math.E
+compile('ln(e)')(0)          === 1
+compile('（x+1）^2')(2)       === 9
+compile('2×3')(0)            === 6
+compile('1e-3')(0)           === 0.001
+compile('(x^2+1)/(x-1)')(3)  === 5
+compile('abs(-3)')(0)        === 3
+compile('lg(1000)')(0)       === 3
+tryCompile('x+').ok          === false
+tryCompile('foo(x)').ok      === false
+tryCompile('(x+1').ok        === false
+derivative(compile('x^2'), 1)                   ≈ 2      （误差 < 1e-4）
+derivative(compile('sin(x)'), 0)                ≈ 1      （误差 < 1e-4）
+integrate(compile('x^2'), 0, 3)                 ≈ 9      （误差 < 1e-6）
+integrate(compile('sin(x)'), 0, Math.PI)        ≈ 2      （误差 < 1e-6）
+findRoots(compile('sin(x)'), -10, 10).length    === 7
+findExtrema(compile('x^2-4x+3'), -10, 10)       长度 1，x≈2，y≈-1，kind='min'
+monotonicIntervals(compile('x^2-4x+3'), -10, 10) 长度 2
+autoRange(compile('tan(x)'), -1.5, 1.5).yMax     < 50
+sampleCurve(compile('1/x'), -2, 2, -10, 10)     至少有一个点的 y 为 null
+prettyPi(Math.PI)        === 'π'
+prettyPi(Math.PI / 2)    === 'π/2'
+prettyPi(3 * Math.PI / 4) === '3π/4'
+prettyPi(2 * Math.PI)    === '2π'
+
+【已知陷阱（上一版就栽在这里，必须避开）】
+隐式乘法最容易写错的一点：遇到标识符后面紧跟左括号时，不能一律当成函数调用。
+例如 x(x+1)，如果先把 x 当函数名再去查函数表，就会报"未知函数：x"。
+正确做法是先判断这个名字是否在函数表里：
+  - 在函数表里（sin/cos/ln...）→ 按函数调用解析
+  - 不在函数表里（x、pi、e）→ 当作变量或常量返回，把它后面的括号交给隐式乘法处理
+同理，x sin(x) 要解析成 x 乘 sin(x)，不要把 "xsin" 当成一个名字。
+
+【输出格式】
+只输出一个 js 代码块，包含完整文件内容。
+代码块外面不要任何解释文字，不要给多个版本，不要写使用示例。

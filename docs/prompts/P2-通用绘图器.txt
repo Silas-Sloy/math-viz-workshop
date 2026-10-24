@@ -1,0 +1,65 @@
+你是资深 React 前端工程师，擅长 Canvas 数据可视化。严格按下面规格写一个通用函数绘图组件。
+
+【项目环境 / 硬性约束】
+- React 19 + Vite，函数组件 + Hooks
+- 只能用浏览器原生 Canvas 2D API
+- 严禁使用 TypeScript、Tailwind、CSS Module、echarts、d3、recharts、framer-motion、katex
+- 只能 import 'react' 和下面指定的本地模块
+- 所有样式用内联 style 对象
+- 不要写 TODO，不要占位，代码必须能直接跑
+
+【文件路径】src/components/plot/PlotCanvas.jsx
+
+【依赖的本地模块】src/utils/mathEngine.js，已存在，提供：
+  tryCompile(expr) -> { ok, fn } | { ok, error }
+  sampleCurve(fn, a, b, yMin, yMax, n) -> [{ x, y }]   y 为 null 表示断开
+  autoRange(fn, a, b) -> { yMin, yMax }
+  findRoots(fn, a, b) -> number[]
+  findExtrema(fn, a, b) -> [{ x, y, kind }]
+用相对路径引入：import { tryCompile, sampleCurve, autoRange, findRoots, findExtrema } from '../../utils/mathEngine'
+
+【组件接口】
+export default function PlotCanvas({ spec, height = 380 })
+
+spec 的形状（全部字段都可能缺省）：
+{
+  expr: 'sin(x)/x',          // 必填，表达式字符串
+  domain: [-6, 6],           // x 范围，缺省 [-6, 6]
+  range: null,               // y 范围，null 表示用 autoRange 自动算
+  fill: false,               // true 表示填充曲线与 x 轴之间的面积
+  fillFrom: 0,               // 填充起点（配合 fill），缺省用 domain[0]
+  marks: [{ x: 1.57, label: '最高点' }],   // 额外标注点，可缺省
+  asymptote: [1.2],          // 竖直渐近线 x 位置，可缺省
+  note: '一句话说明这张图在看什么'        // 图下方小字，可缺省
+}
+
+【渲染要求】
+1. 高清屏适配：canvas.width = 显示宽度 * devicePixelRatio，然后用 ctx.scale 缩放，保证线条不糊
+2. 宽度自适应父容器：用 ref + ResizeObserver 监听容器宽度变化并重绘
+3. 坐标系：画网格（浅灰 #eef1f4，1px）、x 轴和 y 轴（#c8ced6，1.5px）
+4. 刻度：根据 domain 自动选 6~10 个"好看"的刻度值（1/2/5×10^n 系列），标在轴旁边（11px，颜色 #8a94a2）
+5. 曲线：#185FA5，线宽 2.2，lineJoin round；遇到 y 为 null 的点要断开（moveTo 重新开始），不能跨越间断点连线
+6. 填充面积：曲线与 x 轴之间的区域用 rgba(24,95,165,0.14) 填充；若 fill 为 true 且有 fillFrom，只填 fillFrom 到 domain[1] 的部分
+7. 自动特征标注（只在 spec.marks 为空时才自动加，避免打架）：
+   - findExtrema 找到的极值点画小圆点（半径 4，极小 #0F6E56，极大 #A32D2D），旁边标 '极小' 或 '极大'
+   - findRoots 找到的零点在 x 轴上画小方块（4x4，#993C1D）
+   - 最多自动标 4 个点，多了会拥挤就只标值最大的
+8. spec.marks 里的点：画实心圆（半径 5，#993C1D），旁边文字显示 label（12px）
+9. spec.asymptote：竖直虚线（#bbb，虚线 [4,4]），贯穿画布
+10. 悬停读数：鼠标在 canvas 上移动时，画一条竖直虚线跟随鼠标，并在右上角显示 "x = 1.23   y = 0.94"（用 13px 等宽字体）；鼠标离开就清掉
+11. 滚轮缩放：以鼠标位置为中心缩放 domain（缩放系数 1.1，最小跨度 0.2，最大跨度 200），缩放后重绘；按住鼠标拖动可以平移 domain
+12. 左上角显示当前表达式字符串（13px，#185FA5，格式 "f(x) = sin(x)/x"）
+13. 图下方的 note 用 12px、#8a94a2 显示，居中
+
+【状态处理】
+- 表达式编译失败：不要抛错，在画布中央显示红色文字 "表达式有误：<error>"，画布背景浅红 #fff5f5
+- 没有 expr：显示灰字"暂无图像"
+- 所有绘图都在 useEffect 里做，依赖数组要包含所有会影响画面的变量
+
+【性能】
+- sampleCurve 采样点数用 600
+- ResizeObserver 要在组件卸载时断开（cleanup）
+- 重绘时先 clearRect
+
+【输出格式】
+只输出一个 jsx 代码块，包含完整文件。不要解释，不要多个版本，不要省略。

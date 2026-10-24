@@ -1,0 +1,64 @@
+你是资深 React 前端工程师。我需要改造一个已有的 App.jsx，加两个 Tab。请输出改造后的完整文件。
+
+【现有 src/App.jsx 的完整内容】
+import EpsilonDelta from './components/visualizer/EpsilonDelta'
+import TangentApproach from './components/visualizer/TangentApproach'
+import './App.css'
+
+const sections = [
+  {
+    key: 'limit',
+    chapter: '第 1 章 极限',
+    title: '① 极限的 ε-δ 定义',
+    desc: '拖动 ε 滑块，观察 δ 如何随之收缩',
+    Comp: EpsilonDelta,
+  },
+  {
+    key: 'tangent',
+    chapter: '第 2 章 导数',
+    title: '② 导数的几何意义',
+    desc: '让 Δx 趋近 0，看割线转动成切线',
+    Comp: TangentApproach,
+  },
+]
+
+function App() {
+  return (
+    <div style={{ maxWidth: 780, margin: '0 auto', padding: '32px 24px 64px' }}>
+      <header style={{ marginBottom: 8 }}>
+        <h1 style={{ color: '#0C447C', fontSize: 28, fontWeight: 600, letterSpacing: 0.2 }}>
+          MathLens · 高数可视化工坊
+        </h1>
+        <p style={{ color: '#666', fontSize: 14, marginTop: 6 }}>
+          高数最难懂的概念，变成可以拖着玩的动态画面。
+        </p>
+      </header>
+      {sections.map(({ key, chapter, title, desc, Comp }, i) => (
+        <section key={key} style={{ marginTop: i === 0 ? 32 : 48, paddingTop: 28, borderTop: '1px solid #e8eaed' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+            <h2 style={{ color: '#0C447C', fontSize: 19, fontWeight: 600 }}>{title}</h2>
+            <span style={{ color: '#9aa4b2', fontSize: 12 }}>{chapter}</span>
+          </div>
+          <p style={{ color: '#8a94a2', fontSize: 13, marginBottom: 16 }}>{desc}</p>
+          <Comp />
+        </section>
+      ))}
+    </div>
+  )
+}
+
+export default App
+
+【改造要求】
+1. 顶部 header 保留，标题改成 "MathLens · AI 高数解题可视化器"，副标题改成 "输入一道题，AI 把它拆成每一步都能看懂的图"
+2. header 下方加一行 Tab 切换，两个 Tab：
+   - "解题" → 渲染 <ProblemSolver />
+   - "概念工坊" → 渲染原来那套 sections 列表
+3. Tab 样式：文字按钮，选中态底部 2px #185FA5 实线 + 文字 #0C447C + 字号 15 加粗；未选中 #8a94a2，字号 15；间隔 28px；整行底部 1px #e8eaed 分隔；padding-bottom 10
+4. 默认选中"解题"
+5. 外层容器：解题模式 maxWidth 1180，概念工坊模式 maxWidth 780（因为要左右分栏，需要更宽）
+6. import ProblemSolver from './components/solver/ProblemSolver'
+7. 不加任何第三方依赖，不加路由，纯 useState 切换
+
+【输出格式】
+只输出一个 jsx 代码块，包含完整文件（不要只给改动片段），不要解释。

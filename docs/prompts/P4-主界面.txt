@@ -1,0 +1,77 @@
+你是资深 React 前端工程师，做一个"输入数学题 → AI 拆成步骤 → 每步配图"的解题界面。严格按规格实现。
+
+【项目环境 / 硬性约束】
+- React 19 + Vite，函数组件 + Hooks，纯 JavaScript，不要 TypeScript
+- 只允许 import 'react'、'katex'、'katex/dist/katex.min.css' 和下面指定的本地模块
+- 严禁 Tailwind、CSS Module、echarts、framer-motion、react-katex
+- 样式全部内联 style 对象，不要新建 CSS 文件
+- 不要写 TODO，不要省略，代码必须能直接跑
+
+【文件路径】src/components/solver/ProblemSolver.jsx
+
+【依赖的本地模块】
+import PlotCanvas from '../plot/PlotCanvas'
+import { solveProblem, EXAMPLE_PROBLEMS } from '../../services/solver'
+
+【布局（宽屏左右分栏，窄屏上下堆叠）】
+外层 div：display flex，gap 24，alignItems flex-start，宽度 100%
+- 左栏：宽 400，flex '0 0 400'，放步骤卡列表
+- 右栏：flex 1，放图（minWidth 0 防止溢出）
+窄屏（用 window.innerWidth < 900 判断，监听 resize）改成 flexDirection column，左栏宽度改 '100%'
+
+【顶部区域】
+- 标题 h2："输入一道题，看它被拆开"
+- 副标题 p（13px，#8a94a2）："AI 把解题过程拆成几步，每一步配一张能拖能查的图"
+- 输入区：textarea（3 行高，宽度 100%，padding 12，圆角 8，边框 1px #d9dee5，字号 15）
+  占位文字："粘贴或输入一道高数题，例如 ∫₀^π x·sin(x) dx"
+  Ctrl+Enter 或 Cmd+Enter 触发提交
+- 按钮行：
+  - 主按钮"拆解这道题"（背景 #185FA5，白字，圆角 8，padding 10 22，disabled 时变灰 #c8ced6）
+  - 次按钮"换个例子"（描边按钮），点击从 EXAMPLE_PROBLEMS 随机填一个
+- 示例标签行：EXAMPLE_PROBLEMS 每一项做一个小 chip（12px，浅蓝底 #eef4fb，圆角 14，padding 4 10，cursor pointer），点击填入输入框并立即提交
+
+【状态机】
+idle：还没提交，右栏显示空状态
+loading：已提交请求中，按钮显示"AI 正在拆题…"并禁用，右栏显示骨架屏
+done：成功，显示步骤和图
+error：失败，右栏显示红色错误卡 + "重试"按钮
+
+【左栏步骤卡列表（核心）】
+- 每个步骤一张卡：白底，圆角 10，边框 1px #e8eaed，padding 14 16，marginBottom 12
+- 卡片内容：序号圆点（24px 圆，#185FA5 底白字，当前步高亮）+ title（15px，#0C447C，600）+ explain（13px，#4a5568，行高 1.7）
+- 有 formula 时，在 explain 下面用 KaTeX 渲染成块级公式（居中，margin 10 0）
+  用法：import katex from 'katex'
+  const html = katex.renderToString(formula, { throwOnError: false, displayMode: true })
+  然后 <div dangerouslySetInnerHTML={{ __html: html }} />
+  注意：renderToString 必须包 try/catch，出错就退化成纯文本显示
+- 当前选中的卡：边框变 #185FA5，左侧加 3px 蓝色竖条，背景 #f7fafd
+- 点击任意卡切换当前步
+- 有 visual 的步骤，卡片右上角显示一个小标签"有图"（10px，#185FA5）
+- 步骤淡入动画：每张卡用 CSS transition + 根据 index 给 animationDelay（0.06s * index），初始 opacity 0 + translateY(8px) → 显示后 opacity 1 + translateY(0)。用 useEffect + setTimeout 触发，不要用第三方动画库
+
+【右栏图像区】
+- 显示当前步的 visual：<PlotCanvas spec={currentStep.visual} height={400} />
+- 当前步 visual 为 null 时，显示占位卡："这一步是一步推理，没有图像"，灰字居中，高度 400，浅灰底 #fafbfc
+- 图像下方显示"第 N / 共 M 步"和左右切换按钮（"上一步""下一步"），到边界时按钮禁用
+- 键盘左右方向键可以切换步骤（useEffect 里监听 keydown，卸载时移除监听）
+
+【顶部结果卡（done 状态时显示在标题下方）】
+- 一行显示 topic（蓝色小标签）+ problem（14px，#333）
+- 右侧显示"答案"：用 KaTeX 行内渲染 answer（displayMode: false），字号 18，颜色 #0F6E56，前面加"答案 "
+
+【loading 骨架屏】
+- 右栏：一个 400 高的容器，里面 3 条灰色圆角矩形条，用 CSS animation 做呼吸（opacity 0.4 ↔ 1，1.2s 循环），配文"AI 正在拆题…"
+- 左栏：3 张高度 90 的灰色骨架卡
+
+【error 状态】
+- 右栏居中显示：❌ 图标位（用文字"出错了"）、错误信息（13px，#A32D2D）、"重试"按钮
+- 错误信息来自 catch 到的 error.message
+
+【代码组织】
+- 一个 default 导出的 ProblemSolver
+- 内部再定义 3 个小函数组件：StepCard、Skeleton、EmptyHint
+- 状态用 useState：problem（输入框内容）、result、currentIndex、status、errorMsg
+- 不要用 zustand 或任何全局状态，全部组件内自管
+
+【输出格式】
+只输出一个 jsx 代码块，包含完整文件。不要解释，不要多个版本，不要省略。
