@@ -230,3 +230,50 @@ Prompt 里我写了一段「已知陷阱」：
 不看"AI 说它对不对"，只认两条客观证据：
 1. 真机返回的每个 `visual.expr` 都能被 mathEngine 的 `tryCompile` 编译通过（= 保证 P4 一定能画出来，不会因为 AI 给了坏表达式而白屏）；
 2. 容错逻辑用"坏输入 → 修复成功"和"好输入 → 原样"两组用例验证。
+
+---
+
+## 迭代6：2026-10-24 主界面 ProblemSolver.jsx（P4 · DeepSeek 生成）
+
+### 我的 Prompt
+
+完整版见 `docs/prompts/P4-主界面.txt`（87 行）。核心是把"拆题结果"和"看图"连起来：
+- 顶部输入框 + 快捷示例 chips（`EXAMPLE_PROBLEMS`）；
+- 左侧步骤卡列表（序号圆点 + 标题 + 大白话讲解 + KaTeX 公式 + 「有图」角标），点击/键盘 ←→ 切换；
+- 右侧 `PlotCanvas` 联动当前步的 `visual`；无图的步显示占位提示；
+- loading 骨架屏、error 重试、宽窄屏自适应（≥900px 左右分栏，否则上下堆叠）、`requestIdRef` 防竞态（快速连点旧请求作废）。
+
+### 验收方式（这次和画图那步一样，不能光靠 build）
+
+| 动作 | 结果 |
+|---|---|
+| 三处 import 对齐核对 | katex（package.json ^0.19.1）✓ solveProblem/EXAMPLE_PROBLEMS（solver.js 已导出）✓ PlotCanvas（默认导出，props={spec,height}）✓ |
+| `oxlint` 单文件检查 | **0 error** / 2 条无害 warning（catch 未用变量、setState-in-effect 用于卡片级联动画，均预期） |
+| `vite build` | 通过 |
+
+### 一个关键提醒（我主动修的，不是 AI 的错）
+
+P5 提示词里嵌的「现有 App.jsx」是我早前写的 2 积木旧版，但你当时的实际文件已经是 3 积木（多了 ③ 任意函数绘图）。如果照旧提示词发，DeepSeek 会生成一个丢掉第 ③ 段的版本。所以我**先把 P5 提示词更新成与当前文件一致**，并明确「3 个积木全保留」，再让用户发出去。
+
+---
+
+## 迭代7：2026-10-24 双 Tab 接线 App.jsx（P5 · DeepSeek 生成）
+
+### 我的 Prompt
+
+完整版见 `docs/prompts/P5-双Tab接线.txt`。核心是纯 `useState` 做两个 Tab（**不加路由、不加第三方依赖**）：
+- 「解题」Tab → `<ProblemSolver />`，容器 maxWidth 1180（要左右分栏）；
+- 「概念工坊」Tab → 原来 3 个积木（ε-δ / 导数切线 / 任意函数绘图），容器 maxWidth 780；
+- Tab 样式：选中底部 2px #185FA5 实线 + 文字 #0C447C 加粗；默认选中「解题」。
+
+### 验收结果
+
+`vite build` 通过，且产物发生了两个关键变化——**这就是"组件真的被接进去了"的硬证据**：
+1. 出现 `KaTeX_Main-Regular.ttf` 等字体文件（ProblemSolver 的 katex import 被真正打包）；
+2. `index.js` 从 245KB 涨到 523KB（ProblemSolver + KaTeX 被拉进主包）。
+
+至此，**「输入题 → AI 拆步 → 点步骤看图」的完整主流程首次在浏览器整体跑通**。P1~P5 五个积木全部落地：引擎(31 断言) → 绘图器 → 解题服务(真机验证) → 主界面 → 双 Tab 接线。
+
+### 已知但可接受
+
+build 有一个 `>500KB chunk` 提示（KaTeX + React 打包体积）。演示项目可忽略；后续若要优化，可把「概念工坊」Tab 用 `React.lazy` 做代码分割，属于打磨阶段的事，不影响功能。
