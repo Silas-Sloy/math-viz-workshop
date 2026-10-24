@@ -192,3 +192,41 @@ Prompt 里我写了一段「已知陷阱」：
 - `npm run build` 只能抓语法和导入错误，抓不住"状态形状不一致"这类运行时逻辑 bug；
 - 我验收引擎时只测了引擎本身，没测组件接线——**单元正确 ≠ 集成正确**；
 - 浏览器截图里的"错误细节"（刻度范围、缺哪些元素、读数内容）本身就是调试信息，比一句"画不出来"值钱得多。
+
+---
+
+## 迭代5：2026-10-24 解题服务 solver.js（DeepSeek 生成 + 人工加固）
+
+### 我的 Prompt
+
+完整版见 `docs/prompts/P3-解题服务.txt`（87 行）。核心契约：
+- 输出**结构化步骤 JSON**：`{ problem, topic, answer, steps[] }`，每步 `{ title, explain, formula, visual }`；
+- `visual` 是**声明式描述**（type/expr/domain/fill/marks/note），不是可执行代码；
+- 用 `response_format: json_object` 强制 JSON；
+- 带一个 few-shot 示例（lim sin(x)/x 拆 3 步），引导模型"画图 + 讲为什么"。
+
+### 我做的事
+
+| 动作 | 说明 |
+|---|---|
+| 落盘到 `src/services/solver.js` | import 路径 `../utils/mathEngine` 与 PlotCanvas 一致 |
+| 语法检查 | `node --check` 通过 |
+| 写 `test-solver.mjs` | 端到端验收：读 .env 真实 key → 调 DeepSeek → 逐步骤用 mathEngine 验证 expr 能否编译 |
+| **真机测试** | 演示题 `∫₀^π x·sin(x) dx` → 返回 `topic=定积分·分部积分, answer=\pi, 6 步`，第 1 步 `x*sin(x)` 带面积填充，表达式全部可执行 ✅ |
+
+### 真机测试暴露的一个风险 + 我的加固
+
+第一次调用返回的 JSON **在第 350 个字符处 key 漏了双引号**，`JSON.parse` 直接抛错；第二次才正常。这说明 DeepSeek 的 `json_object` 模式**不是 100% 可靠**，偶发漏引号。
+
+如果放任不管，用户真正输入题目时会随机遇到"AI 返回不是合法 JSON"的白屏/报错。所以我给 `parseContent` 加了一层 `repairJson` 容错：
+1. 剥掉 ```json 围栏；
+2. 截取第一个 `{` 到最后一个 `}`；
+3. 用正则给漏引号的 key 补双引号（只匹配 `{, key:` 形式，**不破坏已合法的 JSON**）。
+
+用两个用例验证过：①带围栏+漏引号+前面有废话 → 修复后可解析；②合法 JSON → 原样不动。
+
+### 我的判断依据
+
+不看"AI 说它对不对"，只认两条客观证据：
+1. 真机返回的每个 `visual.expr` 都能被 mathEngine 的 `tryCompile` 编译通过（= 保证 P4 一定能画出来，不会因为 AI 给了坏表达式而白屏）；
+2. 容错逻辑用"坏输入 → 修复成功"和"好输入 → 原样"两组用例验证。
