@@ -223,7 +223,7 @@ export default function PlotCanvas({ spec, height = DEFAULT_HEIGHT }) {
   )
 
   const [width, setWidth] = useState(0)
-  const [view, setView] = useState(baseDomain)
+  const [view, setView] = useState({ a: baseDomain[0], b: baseDomain[1] })
   const [hover, setHover] = useState(null)
   const [dragging, setDragging] = useState(false)
 
@@ -273,7 +273,7 @@ export default function PlotCanvas({ spec, height = DEFAULT_HEIGHT }) {
   }, [])
 
   useEffect(() => {
-    setView(baseDomain)
+    setView({ a: baseDomain[0], b: baseDomain[1] })
     setHover(null)
     setDragging(false)
     dragRef.current = null
